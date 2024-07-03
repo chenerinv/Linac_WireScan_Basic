@@ -56,7 +56,7 @@ async def runscan(con,threadcontext,maindict):
                         threadcontext['stop'].set()
                         print("threadstopped in temporary counter!")            
             else: 
-                pass # this is likely a status response
+                pass # this is likely a status response 
 
 async def checkp(con,paramstrs,result,tries):
     """Check a parameter value."""
@@ -110,11 +110,11 @@ class acsyscontrol:
         """Checks if a thread has finished its finally statement and set the end of the finally."""
         if thread_dict_key in self.thread_dict.keys(): 
             if self.thread_dict[thread_dict_key]['finally'].is_set(): 
-                return True
+                return True 
             else: 
-                return False
+                return False 
         else: 
-            return True
+            return True 
     
     def end_any_thread(self, thread_name): 
         """Ending a thread. Joins threads except mainscan."""
@@ -124,7 +124,7 @@ class acsyscontrol:
 
     def start_scan_thread(self,thread_name,coutput): 
         """Start mainscan thread."""
-        tmscan = threading.Thread(target=self.mainscan,args=(thread_name,coutput,))
+        tmscan = self.mainscan(thread_name,coutput)
         self.thread_dict[thread_name] = {
             'thread': tmscan, 
             'finally': threading.Event(),
