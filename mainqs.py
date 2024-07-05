@@ -2,6 +2,7 @@
 from new_acsyscontrol import acsyscontrol as acs
 import new_basicdata as basicdata
 import new_basicfuncs as basicfuncs
+from new_dataanalysis import dataanalysis as dataana
 import time
 import os
 import json
@@ -13,7 +14,6 @@ import csvdictparse as cdp
 import logging
 import tkinter as tk
 import copy
-logger = logging.getLogger(__name__)
 
 def appender(limit,listA): 
     while limit >= len(listA): 
@@ -155,50 +155,54 @@ def mainqs(userinput):
         # reset quad value with setpoint
         acsyscontrol.setparam(qdata["Quad Name"],qdata["Quad Init Set"])
 
+    # plotting things
+    colors = ["brown", "orange", "mediumseagreen"]
+    markers = ["o","v","s"]
+    legend = ["x","y","u"]
+
+    for wire in qdata['Wires']: 
+        # intialize plot
+        plt.figure()
+        #plt.xlim((min(quadvals)-5),max(quadvals)+1) # quad reading tends to skew low
+        plt.xlabel("Quadrupole "+qdata["Quad Name"]+" Current Readback (A)")
+        plt.ylabel("Gaussian RMS Width of Beam at WS "+wire+" Position (mm)")
+
+        wires = ["X","Y","U"]
+        for i,dir in enumerate(wires): 
+            q = qdata["Wires"][wire]['Quad Real Vals']
+            qerr = qdata["Wires"][wire]['Quad Err']
+            sig = qdata["Wires"][wire]["WS Sigmas"][i]
+            serr = qdata["Wires"][wire]['WS Sigma Err'][i]
+
+            q = [x for i,x in enumerate(q) if sig[i] is not False]
+            qerr = [x for i,x in enumerate(qerr) if sig[i] is not False]
+            serr = [x for i,x in enumerate(serr) if sig[i] is not False]
+            sig = [x for i,x in enumerate(sig) if sig[i] is not False]
+
+            plt.errorbar(q,sig,xerr=qerr,yerr=serr,ls='none',marker='o',label=dir)
+
+            # qstats, fitline = dataana.parab_fit(q,sig)
+            # if qstats == 
 
 
-    
-    
+
+        plt.savefig(os.path.join(qdata["QS Directory"],"_".join([str(qdata["Timestamp"]),qdata["Quad Name"][2:],wire,"Plot"]))) # using the first ws's time marker
+
+        # try fit
 
 
-    # # intialize plot
-    # colors = ["brown", "orange", "mediumseagreen"]
-    # markers = ["o","v","s"]
-    # legend = ["x","y","u"]
-    # plt.figure()
-    # plt.xlim((min(quadvals)-5),max(quadvals)+1) # quad reading tends to skew low
-    # plt.xlabel("Quadrupole Current Readback (A)")
-    # plt.ylabel("Gaussian RMS Width of Beam at WS Position (mm)")
-    # plt.show(block=False) 
-    # plt.draw()
+        # # do the parabolic fit & save data
+        # parabdict, lines = wsanalysis.parab_fit(qdata['qreal'],qdata['wssigma']) # a list and a list of 3-part (xyu) lists
+        # for i in range(3):
+        #     try:
+        #         plt.plot(lines['xs'][i],lines['ys'][i],color = colors[i])
+        #     except Exception as err: 
+        #         logger.warning("An Exception occurred for "+str(qdata['wsid'][-1])+": "+str(err))
+        # plt.draw()
+        # cdp.tocsv(parabdict,savepath+"_".join([str(qdata['wsid'][0]),quadname.replace(":",""),modstr,"parabfit"]))
 
-    #     # update plot with data
-    #     for i in range(3): 
-    #         try:
-    #             if qdata['wssigmaerr'][-1][i] > 5: 
-    #                 plt.plot(qdata['qreal'][-1],qdata['wssigma'][-1][i],marker="x",color=colors[i], label=legend[i])
-    #             else: 
-    #                 plt.errorbar(qdata['qreal'][-1],qdata['wssigma'][-1][i],yerr = qdata['wssigmaerr'][-1][i], xerr = qdata['qerr'][-1], marker=markers[i],color=colors[i], label=legend[i]) # incorporate errors
-    #         except Exception as err: 
-    #             logger.warning("An Exception occurred for "+str(qdata['wsid'][-1])+": "+str(err))
-    #     plt.draw()
-
-
-
-    # # do the parabolic fit & save data
-    # parabdict, lines = wsanalysis.parab_fit(qdata['qreal'],qdata['wssigma']) # a list and a list of 3-part (xyu) lists
-    # for i in range(3):
-    #     try:
-    #         plt.plot(lines['xs'][i],lines['ys'][i],color = colors[i])
-    #     except Exception as err: 
-    #         logger.warning("An Exception occurred for "+str(qdata['wsid'][-1])+": "+str(err))
-    # plt.draw()
-    # cdp.tocsv(parabdict,savepath+"_".join([str(qdata['wsid'][0]),quadname.replace(":",""),modstr,"parabfit"]))
-
-    # # saving figure
-    # plt.savefig(savepath+"_".join([str(qdata['wsid'][0]),quadname.replace(":",""),modstr,"plot"])+".png") # using the first ws's time marker
-    # print("All done. Please close plot after examination to close out the code.")
-    # plt.show()
+        # # saving figure
+        # plt.savefig(savepath+"_".join([str(qdata['wsid'][0]),quadname.replace(":",""),modstr,"plot"])+".png") # using the first ws's time marker
 
 if __name__ == '__main__':
     mainqs()

@@ -13,17 +13,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 def mainws(userinput,acsyscontrol): 
-
     """Execute the setup needed for a scan and start the scan."""
-    # locking to modification
     scan_thread = "mainscan"
-    # check thread isn't open+unset or open+set+incomplete
-    # if scan_thread in acsyscontrol.get_list_of_threads(): # if thread exists and is unset
-    #     print("Starting another scan is not allowed. Another scan is ongoing.\n")
-    #     return
-    # elif acsyscontrol.check_finally(scan_thread) is False:  # or if thread exists, is set, but finally isn't done (to accomodate lack of joining in abort)
-    #     print("Starting another scan is not allowed. Another scan is closing.\n")
-    #     return 
     # checking there's no missing keys 
     for item in basicdata.requiredkeys: 
         if item not in list(userinput.keys()): 
