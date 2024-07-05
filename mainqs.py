@@ -157,8 +157,6 @@ def mainqs(userinput):
 
     # plotting things
     colors = ["brown", "orange", "mediumseagreen"]
-    markers = ["o","v","s"]
-    legend = ["x","y","u"]
 
     for wire in qdata['Wires']: 
         # intialize plot
@@ -179,30 +177,18 @@ def mainqs(userinput):
             serr = [x for i,x in enumerate(serr) if sig[i] is not False]
             sig = [x for i,x in enumerate(sig) if sig[i] is not False]
 
-            plt.errorbar(q,sig,xerr=qerr,yerr=serr,ls='none',marker='o',label=dir)
+            plt.errorbar(q,sig,xerr=qerr,yerr=serr,ls='none',marker='o',color=colors[i],label=dir)
 
-            # qstats, fitline = dataana.parab_fit(q,sig)
-            # if qstats == 
+            qstats, fitline = dataana.parab_fit(q,sig)
+            if qstats["error"] == None: # if fit was successful, plot it
+                plt.plot(fitline["xs"],fitline["ys"],color=colors[i],label=dir+" Fit")
+            kl = [basicfuncs.currtokl(x) for x in q]
+            realqstats = dataana.parab_fit(kl,sig)[0]
+            fitstatdict = {"raw": qstats, "kl": realqstats}
+            basicfuncs.dicttojson(fitstatdict,os.path.join(qdata["QS Directory"],"_".join([str(qdata["Timestamp"]),qdata["Quad Name"][2:],wire,dir,"ParabolicFitStats.json"])))
 
-
-
+        plt.legend()
         plt.savefig(os.path.join(qdata["QS Directory"],"_".join([str(qdata["Timestamp"]),qdata["Quad Name"][2:],wire,"Plot"]))) # using the first ws's time marker
-
-        # try fit
-
-
-        # # do the parabolic fit & save data
-        # parabdict, lines = wsanalysis.parab_fit(qdata['qreal'],qdata['wssigma']) # a list and a list of 3-part (xyu) lists
-        # for i in range(3):
-        #     try:
-        #         plt.plot(lines['xs'][i],lines['ys'][i],color = colors[i])
-        #     except Exception as err: 
-        #         logger.warning("An Exception occurred for "+str(qdata['wsid'][-1])+": "+str(err))
-        # plt.draw()
-        # cdp.tocsv(parabdict,savepath+"_".join([str(qdata['wsid'][0]),quadname.replace(":",""),modstr,"parabfit"]))
-
-        # # saving figure
-        # plt.savefig(savepath+"_".join([str(qdata['wsid'][0]),quadname.replace(":",""),modstr,"plot"])+".png") # using the first ws's time marker
 
 if __name__ == '__main__':
     mainqs()

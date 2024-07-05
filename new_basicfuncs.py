@@ -139,5 +139,18 @@ def avgtag(indict,tagkey):
     else: 
         return False,False,False
 
+def currtokl(current): 
+    me, mp, c, l = 0.511006, 938.27, 299.792458, 85.3
+    mh = me+mp
+    sub = -92.6639720014948 # scaling factor
+    betagamma = 0.513266511360034
+
+    bprime = current+sub
+    bpl = bprime*l/1000
+    f = betagamma*(mh/c)/bpl
+    kl = 1/f # 1/m
+
+    return kl
+
 if __name__ == "__main__":
     checktype()

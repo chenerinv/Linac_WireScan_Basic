@@ -112,8 +112,8 @@ class dataanalysis:
             'berr': [],
             'cerr': [],
             'r2': [],
+            'error': None,
         }
-        errorstat = 0
         fitline = { # a separate dict because this isn't going to be saved to file
             'xs': [],
             'ys': []
@@ -122,32 +122,32 @@ class dataanalysis:
         try: 
             padd, cadd = cf(parabola, np.array(quadlist), np.array(siglist))
         except Exception as err: 
-            errorstat = Exception # a random nonzero value
+            outdict["error"] = Exception # a random nonzero value
 
-        if errorstat == 0: # if parabolic fit was successful
+        if outdict["error"] == None: # if parabolic fit was successful
             res = np.array(siglist)-parabola(np.array(quadlist),*padd) 
             ss_res = np.sum(res**2)
             ss_tot = np.sum((siglist-np.mean(siglist))**2)
-            outdict['a'] += [padd[0]]
-            outdict['b'] += [padd[1]] 
-            outdict['c'] += [padd[2]]
-            outdict['aerr'] += [np.sqrt(cadd[0][0])]
-            outdict['berr'] += [np.sqrt(cadd[1][1])] 
-            outdict['cerr'] += [np.sqrt(cadd[2][2])]
-            outdict['r2'] += [1-(ss_res/ss_tot)]           
+            outdict['a'] = padd[0]
+            outdict['b'] = padd[1]
+            outdict['c'] = padd[2]
+            outdict['aerr'] = np.sqrt(cadd[0][0])
+            outdict['berr'] = np.sqrt(cadd[1][1])
+            outdict['cerr'] = np.sqrt(cadd[2][2])
+            outdict['r2'] = 1-(ss_res/ss_tot)
             xs = np.linspace(min(quadlist)-5,max(quadlist)+5,100)
             ys = parabola(np.array(xs),*padd)
-            fitline['xs'] += [xs]
-            fitline['ys'] += [ys]
+            fitline['xs'] = xs
+            fitline['ys'] = ys
         else: 
-            outdict['a'] += [None]
-            outdict['b'] += [None] 
-            outdict['c'] += [None]
-            outdict['aerr'] += [None]
-            outdict['berr'] += [None] 
-            outdict['cerr'] += [None]
-            outdict['r2'] += [None]
-            fitline['xs'] += [None]
-            fitline['ys'] += [None]
+            outdict['a'] = None
+            outdict['b'] = None
+            outdict['c'] = None
+            outdict['aerr'] = None
+            outdict['berr'] = None
+            outdict['cerr'] = None
+            outdict['r2'] = None
+            fitline['xs'] = None
+            fitline['ys'] = None
 
         return outdict, fitline

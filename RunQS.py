@@ -15,7 +15,7 @@ userinput = {
     
     "Wires": ["D03","D02"],
     "Quad Name": "G:AMANDA",
-    "Quad Vals": [60,70,75,80],
+    "Quad Vals": [60,65,70,75,80],
     "QS User Comment": "program test",
 }
 #########################
