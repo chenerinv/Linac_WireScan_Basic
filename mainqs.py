@@ -4,6 +4,7 @@ import new_basicdata as basicdata
 import new_basicfuncs as basicfuncs
 import time
 import os
+import json
 
 import mainws
 import matplotlib.pyplot as plt
@@ -11,81 +12,154 @@ import wsanalysis
 import csvdictparse as cdp
 import logging
 import tkinter as tk
+import copy
 logger = logging.getLogger(__name__)
+
+def appender(limit,listA): 
+    while limit >= len(listA): 
+        listA.append(False)
 
 def mainqs(userinput): 
     acsyscontrol = acs()
+    qdata = {
+        'Quad Name': userinput["Quad Name"],
+        'Quad Set Vals': userinput["Quad Vals"], 
+        'User Comment': userinput["QS User Comment"],
+        'Wires': {} # dict of dicts, {"D03":{},"D12":{}}
+    }
 
-    def startscan(): 
-        mainws.mainws(userinput,acsyscontrol)
-        time.sleep(200)
+    # make quad directory
+    qdata["Timestamp"] = round(time.time()) # choose unix time stamp around now 
+    # make directory
+    savepath = os.path.join(userinput["Save Directory"],str(qdata["Timestamp"])+"_QS").replace("\\","/")
+    if not os.path.exists(savepath): 
+        os.makedirs(savepath)
+        qdata["QS Directory"] = savepath
+    else: 
+        print("Folder for data unable to be created.\n")
+        return
 
-    def abortscan(): 
-        """Abort an ongoing scan."""
-        try: 
-            scan_thread = "mainscan"
-            if scan_thread in acsyscontrol.get_list_of_threads(): # kill existing thread if present
-                acsyscontrol.end_any_thread(scan_thread)
-                print("Scan aborted by user.\n") 
-                # wiresout() # think more about this
-                # record that an abort occurred by editing the metadata file
-                # metad["Abort"] = True
-                # basicfuncs.dicttojson(metad,os.path.join(userinput["WS Directory"],"_".join([str(userinput["Timestamp"]),userinput["Wire"],"Metadata.json"])))
-            else: 
-                print("No WS scan to abort.\n")
-        except AttributeError: 
-            print("No WS scan to abort.\n") 
-
-    def wiresout():
-        """Issue setting to move wire to the out position."""
-        if userinput["Wire"].strip() in basicdata.pdict.keys():
-            try: 
-                acsyscontrol.setparam(basicdata.pdict[userinput["Wire"].strip()][0],-12700)
-                print("Out setting issued to "+basicdata.pdict[userinput["Wire"].strip()][0]+".\n")
-            except ValueError:
-                print("Invalid Kerberos realm.\n") 
-        else: 
-            print("No wire selected, cannot pull wire out.\n")
-
-
-    # #TODO have something monitor the status of the thread and watch for an input? don't use a prompt in the input, issue one message and then 
-    # # repeatedly loop to updated thread status and re-request an input? 
-    # # typedinput = ""
-
-    # typedinput = input("Type 'abort' to abort scan or 'wo' to pull the wires out. ") 
-
-    # if typedinput == 'abort': 
-    #     abortbutton() 
-    #     return 
-    # elif typedinput == 'wo': 
-    #     wiresout() 
-    # else: 
-    #     pass 
-
-
-        
-    
-
-    
-    
-    
-    
     # check and save current quad value
-    # quads = ac.checkparam(str(quadname)+".SETTING",10)[0]
-    # logger.info(quadname+" initial setting value is "+str(quads))
-    # quadinit = ac.checkparam(str(quadname)+".READING",10)[0]
-    # logger.info(quadname+" initial reading value is "+str(quadinit))
+    qdata["Quad Init Set"] = acsyscontrol.checkparam([str(qdata["Quad Name"])+".SETTING"],10)[0]
+    qdata["Quad Init Read"] = acsyscontrol.checkparam([str(qdata["Quad Name"])+".READING"],10)[0]
+    if (qdata["Quad Init Set"] == False) or (qdata["Quad Init Read"] == False):
+        print("Couldn't read quad values. Scan cancelled.")
+        return 
+    else: 
+        print("Initial setting is: "+str(qdata["Quad Init Set"]))
+        print("Initial reading is "+str(qdata["Quad Init Read"]))
+
+    # make ws 
+    for ws in userinput["Wires"]: 
+        qdata["Wires"][ws] = { 
+            'WS Timestamps': [], # just a list 
+            'WS Paths': [], # just a list
+            'WS Sigmas': [[],[],[]], # a list of 3-element-lists #TODO
+            'WS Sigma Err': [[],[],[]], # a list of 3-element-lists #TODO
+            'WS R2': [[],[],[]], # a list of 3-element-lists #TODO
+            'Quad Real Vals': [], # just a list #TODO
+            'Quad Real Weights': [],
+            'Quad Err': [], # just a list #TODO
+        }
+
+    counterq = -1
+
+    try: 
+        for qval in qdata["Quad Set Vals"]: 
+            counterq += 1
+            for wire in list(qdata["Wires"].keys()):
+                # do manipulation to configure wsinput 
+                wsinput = copy.deepcopy(userinput)
+                wsinput["Wire"] = wire
+                wsinput["Additional Parameters"] = [qdata['Quad Name']]+wsinput["Additional Parameters"]
+                # change user comment to include quad scan identifier
+                wsinput["User Comment"] = "QS_ID_"+str(qdata["Timestamp"])
+                acsyscontrol.setparam(qdata['Quad Name'],qval)
+                timestamp, folderpath = mainws.mainws(wsinput,acsyscontrol)
+                qdata["Wires"][wire]["WS Timestamps"] = timestamp
+                qdata["Wires"][wire]["WS Paths"] = folderpath
+
+                # # retrieve WS data and quad data
+                def savestuff(tempdata,index): 
+                    if tempdata["error"] == None: # checking there will actually be a sigma to reference
+                        if counterq < len(qdata['Wires'][wire]['WS Sigmas'][index]): 
+                            qdata['Wires'][wire]['WS Sigmas'][index][counterq] = tempdata["sigma"]
+                        else: 
+                            appender(counterq,qdata['Wires'][wire]['WS Sigmas'][index])
+                            qdata['Wires'][wire]['WS Sigmas'][index][counterq] = tempdata["sigma"]
+                        if counterq < len(qdata['Wires'][wire]['WS Sigma Err'][index]): 
+                            qdata['Wires'][wire]['WS Sigma Err'][index][counterq] = tempdata["sigmaerr"]
+                        else: 
+                            appender(counterq,qdata['Wires'][wire]['WS Sigma Err'][index])
+                            qdata['Wires'][wire]['WS Sigma Err'][index][counterq] = tempdata["sigmaerr"]
+                        if counterq < len(qdata['Wires'][wire]['WS R2'][index]): 
+                            qdata['Wires'][wire]['WS R2'][index][counterq] = tempdata["r2"]
+                        else: 
+                            appender(counterq,qdata['Wires'][wire]['WS R2'][index])
+                            qdata['Wires'][wire]['WS R2'][index][counterq] = tempdata["r2"]
+                    else: 
+                        appender(counterq,qdata['Wires'][wire]['WS Sigmas'][index])
+                        appender(counterq,qdata['Wires'][wire]['WS Sigma Err'][index])
+                        appender(counterq,qdata['Wires'][wire]['WS R2'][index])
+
+                # extracting wire scanner data, needs to be tested
+                wsfiles = os.listdir(folderpath)
+                searchkeys = ["X_GaussianFitStats.json","Y_GaussianFitStats.json","U_GaussianFitStats.json"]
+                searchkeycheck = [0,0,0]
+                for wsfile in wsfiles: 
+                    if wsfile[-23:] in searchkeys: 
+                        with open(os.path.join(folderpath,wsfile)) as jsonfile: 
+                            tempdata = json.load(jsonfile)
+                            savestuff(tempdata,searchkeys.index(wsfile[-23:]))
+                            searchkeycheck[searchkeys.index(wsfile[-23:])] = 1
+                    if wsfile[-13:] == "Metadata.json":
+                        with open(os.path.join(folderpath,wsfile)) as jsonfile:
+                            tempdata = json.load(jsonfile)
+                            taglist = tempdata["Tags"]
+                    if wsfile[-11:] == "RawData.csv":
+                        rawdata = basicfuncs.csvtodict(os.path.join(folderpath,wsfile))
+
+                for i,skey in enumerate(searchkeycheck):
+                    if skey == 0: # accounting for if the file is missing
+                        appender(counterq,qdata['Wires'][wire]['WS Sigmas'][i])
+                        appender(counterq,qdata['Wires'][wire]['WS Sigma Err'][i])
+                        appender(counterq,qdata['Wires'][wire]['WS R2'][i])
+
+                qdatatag = 200
+                # extracting quad scan data
+                for tag in taglist: 
+                    if taglist[tag] == qdata["Quad Name"]:
+                        qdatatag = tag
+                if qdatatag == 200: 
+                    appender(counterq,qdata['Wires'][wire]['Quad Real Vals'])
+                    appender(counterq,qdata['Wires'][wire]['Quad Real Weights'])
+                    appender(counterq,qdata['Wires'][wire]['Quad Err'])
+                else: 
+                    avg, std, weight = basicfuncs.avgtag(rawdata,qdatatag)
+                    if counterq < len(qdata['Wires'][wire]['Quad Real Vals']): 
+                        qdata['Wires'][wire]['Quad Real Vals'][counterq] = avg
+                        qdata['Wires'][wire]['Quad Real Weights'][counterq] = weight
+                        qdata['Wires'][wire]['Quad Err'][counterq] = std
+
+                    else: 
+                        appender(counterq,qdata['Wires'][wire]['Quad Real Vals'])
+                        qdata['Wires'][wire]['Quad Real Vals'][counterq] = avg
+                        appender(counterq,qdata['Wires'][wire]['Quad Real Weights'])
+                        qdata['Wires'][wire]['Quad Real Weights'][counterq] = weight
+                        appender(counterq,qdata['Wires'][wire]['Quad Err'])
+                        qdata['Wires'][wire]['Quad Err'][counterq] = std
+
+    finally: 
+        # save qs data
+        basicfuncs.dicttojson(qdata,os.path.join(qdata["QS Directory"],"_".join([str(qdata["Timestamp"]),qdata["Quad Name"][2:],"Summary.json"])))
+        # reset quad value with setpoint
+        acsyscontrol.setparam(qdata["Quad Name"],qdata["Quad Init Set"])
+
+
+
     
-    # # initialize list of data for quadscan plot
-    # qdata = {
-    #     'quadsets': quadvals, 
-    #     'qreal': [], # just a list
-    #     'qerr': [], # just a list
-    #     'wsid': [], # just a list
-    #     'wssigma': [], # a list of 3-element-lists
-    #     'wssigmaerr': [], # a list of 3-element-lists
-    #     'wsr2': [] # a list of 3-element-lists
-    # }
+    
+
 
     # # intialize plot
     # colors = ["brown", "orange", "mediumseagreen"]
@@ -98,22 +172,6 @@ def mainqs(userinput):
     # plt.show(block=False) 
     # plt.draw()
 
-    # for current in quadvals: 
-    #     # change quad value to setpoint and confirm 
-    #     ac.setconfirm(quadname,current)
-
-    #     # run wire scanner program
-    #     utime, siglist, sigerr, r2s, dpresults = mainws.mainws(modstr,setp,cutoff,[quadname],savepath)
-        
-    #     # save data for quadscan plot
-    #     qavg, qstd = wsanalysis.avg(dpresults[quadname])
-    #     qdata['wsid'] += [utime]
-    #     qdata['wssigma'] += [siglist]
-    #     qdata['wssigmaerr'] += [sigerr]
-    #     qdata['wsr2'] += [r2s]
-    #     qdata['qreal'] += [qavg]
-    #     qdata['qerr'] += [qstd]
-
     #     # update plot with data
     #     for i in range(3): 
     #         try:
@@ -125,11 +183,7 @@ def mainqs(userinput):
     #             logger.warning("An Exception occurred for "+str(qdata['wsid'][-1])+": "+str(err))
     #     plt.draw()
 
-    # # reset quad value with setpoint
-    # ac.setconfirm(quadname,quads)
 
-    # # save quadscan data summary
-    # cdp.tocsv(qdata,savepath+"_".join([str(qdata['wsid'][0]),quadname.replace(":",""),modstr,"datasummary"]))
 
     # # do the parabolic fit & save data
     # parabdict, lines = wsanalysis.parab_fit(qdata['qreal'],qdata['wssigma']) # a list and a list of 3-part (xyu) lists

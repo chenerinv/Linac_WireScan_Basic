@@ -18,12 +18,12 @@ def mainws(userinput,acsyscontrol):
     # locking to modification
     scan_thread = "mainscan"
     # check thread isn't open+unset or open+set+incomplete
-    if scan_thread in acsyscontrol.get_list_of_threads(): # if thread exists and is unset
-        print("Starting another scan is not allowed. Another scan is ongoing.\n")
-        return
-    elif acsyscontrol.check_finally(scan_thread) is False:  # or if thread exists, is set, but finally isn't done (to accomodate lack of joining in abort)
-        print("Starting another scan is not allowed. Another scan is closing.\n")
-        return 
+    # if scan_thread in acsyscontrol.get_list_of_threads(): # if thread exists and is unset
+    #     print("Starting another scan is not allowed. Another scan is ongoing.\n")
+    #     return
+    # elif acsyscontrol.check_finally(scan_thread) is False:  # or if thread exists, is set, but finally isn't done (to accomodate lack of joining in abort)
+    #     print("Starting another scan is not allowed. Another scan is closing.\n")
+    #     return 
     # checking there's no missing keys 
     for item in basicdata.requiredkeys: 
         if item not in list(userinput.keys()): 
@@ -73,37 +73,12 @@ def mainws(userinput,acsyscontrol):
     if len(params) == 5: 
         metad["Pulse Length"] = m[3]-m[2]
         metad["Frequency"] = m[4]
-    metad["Abort"] = False
     basicfuncs.dicttojson(metad,os.path.join(userinput["WS Directory"],"_".join([str(userinput["Timestamp"]),userinput["Wire"],"Metadata.json"])))
     
     # start wirescan 
+    print("Scan initiated.")
     acsyscontrol.start_scan_thread(scan_thread,userinput)
-    print("Scan initiated.\n")
-
-# def mainws(modstr,setp,cutoff,addparam,savepath): 
-#     setind = 5 # arbitrary value that's not 0 or 1
-    
-#     currpos, stamp = ac.checkparam("L:"+str(modstr)+"WPX.READING",10)  
-#     uniquetime = calendar.timegm(stamp.timetuple()) # stamp is a unixtime, gmt 
-#     logger.info("WS Identifier is "+str(uniquetime))
-
-#     if currpos > cutoff[0]: setind = 1 
-#     elif currpos < cutoff[1]: setind = 0 
-#     else: 
-#         logger.critical("Warning! Wire scanner is in the beampipe. Please move to a viable position.")
-#         return uniquetime # this will likely stop the program
-
-#     if setind < 2:
-#         results = ac.onews_proc(modstr,setp,cutoff,setind,addparam) # execute a wire scan
-#         cdp.tocsv(results,savepath+"_".join([str(uniquetime),modstr,"resultsraw"])) # save raw data
-#         dpresults, err = dataprocess.data_proc(results,addparam) # organize data
-#         logger.info("dpresults yields errors: "+str(err))
-#         cdp.tocsv(dpresults,savepath+"_".join([str(uniquetime),modstr,"resultsprocessed"])) # export organized data
-        
-#         fitinfo = wsanalysis.onews_fit(dpresults,uniquetime,modstr,savepath) # execute gaussian fit & plotting
-#         cdp.tocsv(fitinfo,savepath+"_".join([str(uniquetime),modstr,"resultsfit"])) # save gaussian fit data
-
-#     return uniquetime, fitinfo['sigma'], fitinfo['sigmaerr'], fitinfo['r2'], dpresults
+    return userinput["Timestamp"], userinput["WS Directory"]
 
 if __name__ == '__main__':
     mainws()

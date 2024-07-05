@@ -72,16 +72,15 @@ async def checkp(con,paramstrs,result,tries):
 
         # process incoming data. Need better exit condition.
         async for it_res in dpm:
-            if count1 < tries: 
-                if it_res.isReading:
-                    result['value'][it_res.tag] = it_res.data
-                    if False not in result['value']: 
-                        break
-                else:
-                    count1 = count1+1
-                    pass # this is likely a status response
+            if it_res.isReading:
+                result['value'][it_res.tag] = it_res.data
+                if False not in result['value']: 
+                    break
             else:
-                break # it failed to get the data in the number of specified tries
+                count1 = count1+1
+                if count1 > tries:
+                    break
+                pass # this is likely a status response
     return result['value']
 
 async def setp(con,paramstr,setting): 
@@ -101,38 +100,15 @@ class acsyscontrol:
         self.thread_dict = {}
         self.dataanalysis = dataanalysis()
 
-# starting threads and thread management: 
-    def get_list_of_threads(self): 
-        """Returns list of unset threads."""
-        return [key for key in self.thread_dict.keys() if not self.thread_dict[key]['stop'].is_set()] 
-    
-    def check_finally(self,thread_dict_key): 
-        """Checks if a thread has finished its finally statement and set the end of the finally."""
-        if thread_dict_key in self.thread_dict.keys(): 
-            if self.thread_dict[thread_dict_key]['finally'].is_set(): 
-                return True 
-            else: 
-                return False 
-        else: 
-            return True 
-    
-    def end_any_thread(self, thread_name): 
-        """Ending a thread. Joins threads except mainscan."""
-        self.thread_dict[thread_name]['stop'].set() 
-        if thread_name != "mainscan":
-            self.thread_dict[thread_name]['thread'].join() 
-
     def start_scan_thread(self,thread_name,coutput): 
         """Start mainscan thread."""
-        tmscan = self.mainscan(thread_name,coutput)
         self.thread_dict[thread_name] = {
-            'thread': tmscan, 
             'finally': threading.Event(),
             #'lock': threading.Lock(),
             'stop': threading.Event(),
             'outdict': {'tags': [], 'data': [],'stamps': []}
         }
-        tmscan.start()
+        tmscan = self.mainscan(thread_name,coutput)
 
 # functions to happen inside of threads:
     def setparam(self,paramstr,setting): 
@@ -163,5 +139,5 @@ class acsyscontrol:
                 self.dataanalysis.endscanproc(procdata,coutput)
             # thread done, can be closed
             self.thread_dict[thread_name]['finally'].set()
-            print("Scan closed.\n")
+            print("Scan closed.")
 

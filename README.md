@@ -7,3 +7,5 @@ Can run one WS or a QS.
 - added an optional string that can be put into the log file  
 - changed the data acquisition to acquire on the $0A  
 
+# To Do
+- do we have to be concerned about running two WSs in the quad scan when the wire scanners are impinging on beam? 

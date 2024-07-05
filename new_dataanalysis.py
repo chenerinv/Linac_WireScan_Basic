@@ -80,6 +80,19 @@ class dataanalysis:
                     plt.close()
                 except: 
                     print("Plotting failed!")
+            else: 
+                try: 
+                    matplotlib.use('agg')
+                    plt.figure()
+                    plt.scatter(procdata[x],procdata[y],label="Raw Data")
+                    plt.xlabel("Position (mm)")
+                    plt.ylabel("Intensity (V)")
+                    plt.title(", ".join([coutput["Wire"],x[-1].upper()]))
+                    plt.legend()
+                    plt.savefig(os.path.join(coutput["WS Directory"],"_".join([str(coutput["Timestamp"]),coutput["Wire"],x[-1].upper(),"PlotRaw.png"])))
+                    plt.close()
+                except: 
+                    print("Plotting failed!")
 
     # return list of data corresponding to the input parameters and dataset
     def generatefitline(self,inputnp,params,fit): 

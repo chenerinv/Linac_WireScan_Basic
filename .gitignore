@@ -1,3 +1,4 @@
 /.env.development
 /datacollect/
 /__pycache__/
+test.py
