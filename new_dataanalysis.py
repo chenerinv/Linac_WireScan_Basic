@@ -5,6 +5,7 @@ from scipy.optimize import curve_fit as cf
 import new_basicdata as basicdata
 import new_basicfuncs as basicfuncs
 import os
+import math
 
 class dataanalysis: 
     def __init__(self): 
@@ -100,7 +101,7 @@ class dataanalysis:
             return [self.gauss(x,params['amp'],params['peak'],params['sigma'],params['float']) for x in inputnp]
         
 
-    def parab_fit(quadlist,siglist):  
+    def parab_fit(quadlist,siglist,sigerrlist):  
         def parabola(x,a,b,c):
             return a*x**2 + b*x + c
 
@@ -119,13 +120,86 @@ class dataanalysis:
             'ys': []
         }
 
+        quadlist = [x for i,x in enumerate(quadlist) if math.isnan(siglist[i]) is False]
+        siglist = [x for x in siglist if math.isnan(x) is False]
+        sigerrlist = [x for x in sigerrlist if math.isnan(x) is False]
+
         try: 
-            padd, cadd = cf(parabola, np.array(quadlist), np.array(siglist))
+            if sigerrlist == []: 
+                padd, cadd = cf(parabola, np.array(quadlist), np.array(siglist))
+            else: 
+                padd, cadd = cf(parabola, np.array(quadlist), np.array(siglist),sigma=sigerrlist,absolute_sigma=True) #
         except Exception as err: 
-            outdict["error"] = Exception # a random nonzero value
+            outdict["error"] = str(err) # a random nonzero value
+            print(err)
 
         if outdict["error"] == None: # if parabolic fit was successful
             res = np.array(siglist)-parabola(np.array(quadlist),*padd) 
+            ss_res = np.sum(res**2)
+            ss_tot = np.sum((siglist-np.mean(siglist))**2)
+            if sigerrlist == []:
+                outdict["res"] = res
+            else: 
+                outdict["chi_square"] = np.sum(np.square(np.divide(res,sigerrlist)))
+                outdict["chi_square_red"] = outdict["chi_square"] / (len(siglist)-3)
+
+            outdict['a'] = padd[0]
+            outdict['b'] = padd[1]
+            outdict['c'] = padd[2]
+            outdict['aerr'] = np.sqrt(cadd[0][0])
+            outdict['berr'] = np.sqrt(cadd[1][1])
+            outdict['cerr'] = np.sqrt(cadd[2][2])
+            outdict['r2'] = 1-(ss_res/ss_tot)
+            outdict['padd']= padd # new
+            outdict['cadd']= cadd # new
+            xs = np.linspace(min(quadlist)-5,max(quadlist)+5,100)
+            ys = parabola(np.array(xs),*padd)
+            fitline['xs'] = xs
+            fitline['ys'] = ys
+        else: 
+            outdict['a'] = None
+            outdict['b'] = None
+            outdict['c'] = None
+            outdict['aerr'] = None
+            outdict['berr'] = None
+            outdict['cerr'] = None
+            outdict['r2'] = None
+            outdict['padd']= None # new
+            outdict['cadd']= None # new
+            fitline['xs'] = None
+            fitline['ys'] = None
+
+        return outdict, fitline
+    
+    def realdata_fit(quadlist,siglist):  
+        def sqrtparabola(x,a,b,c): # not actually a parabola
+            return np.sqrt(a*x**2 + b*x + c)
+
+        outdict = {
+            'a': [], # 1-3 part list
+            'b': [],
+            'c': [],
+            'aerr': [],
+            'berr': [],
+            'cerr': [],
+            'r2': [],
+            'error': None,
+        }
+        fitline = { # a separate dict because this isn't going to be saved to file
+            'xs': [],
+            'ys': []
+        }
+
+        quadlist = [x for i,x in enumerate(quadlist) if math.isnan(siglist[i]) is False]
+        siglist = [x for x in siglist if math.isnan(x) is False]
+
+        try: 
+            padd, cadd = cf(sqrtparabola, np.array(quadlist), np.array(siglist))
+        except Exception as err: 
+            outdict["error"] = str(err) # a random nonzero value
+
+        if outdict["error"] == None: # if parabolic fit was successful
+            res = np.array(siglist)-sqrtparabola(np.array(quadlist),*padd) 
             ss_res = np.sum(res**2)
             ss_tot = np.sum((siglist-np.mean(siglist))**2)
             outdict['a'] = padd[0]
@@ -136,7 +210,7 @@ class dataanalysis:
             outdict['cerr'] = np.sqrt(cadd[2][2])
             outdict['r2'] = 1-(ss_res/ss_tot)
             xs = np.linspace(min(quadlist)-5,max(quadlist)+5,100)
-            ys = parabola(np.array(xs),*padd)
+            ys = sqrtparabola(np.array(xs),*padd)
             fitline['xs'] = xs
             fitline['ys'] = ys
         else: 

@@ -39,6 +39,9 @@ def dicttojson(indict,jsonstr):
     for item in ["Additional Parameters", "Monitors", "Monitor Min", "Monitor Max"]: 
         if item in list(outdict.keys()): 
             outdict[item] = ", ".join([str(i) for i in outdict[item]])
+    for key in indict: # added 8/2/2024 so we wouldn't end up with NaNs in JSONs
+        if isinstance(indict[key],float):
+            if math.isnan(indict[key]): indict[key] = None
     if jsonstr[-5:] != ".json": 
         jsonstr += ".json"
     with open(jsonstr,"w") as outfile: 
@@ -139,16 +142,24 @@ def avgtag(indict,tagkey):
     else: 
         return False,False,False
 
-def currtokl(current): 
+def currtokl(current,beta,energyMeV): 
     me, mp, c, l = 0.511006, 938.27, 299.792458, 85.3
     mh = me+mp
     sub = -92.6639720014948 # scaling factor
     betagamma = 0.513266511360034
 
-    bprime = current+sub
-    bpl = bprime*l/1000
-    f = betagamma*(mh/c)/bpl
-    kl = 1/f # 1/m
+    sol = 2.99*10**8 #m/s
+    #beta = 0.456630784
+    Kval = 0.1338 # T/m/A
+    energy = (energyMeV+mh)*10**6 # eV
+    length = basicdata.quadlength # m
+
+    # bprime = current*Kval #current+sub
+    # bpl = bprime*l/1000
+    # f = betagamma*(mh/c)/bpl
+    #kl = 1/f # 1/m
+
+    kl = Kval*current*sol*length/(beta*energy)
 
     return kl
 
