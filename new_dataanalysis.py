@@ -99,7 +99,6 @@ class dataanalysis:
     def generatefitline(self,inputnp,params,fit): 
         if fit == "gauss": 
             return [self.gauss(x,params['amp'],params['peak'],params['sigma'],params['float']) for x in inputnp]
-        
 
     def parab_fit(quadlist,siglist,sigerrlist):  
         def parabola(x,a,b,c):

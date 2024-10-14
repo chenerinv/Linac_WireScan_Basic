@@ -6,17 +6,17 @@ import os
 
 ##### #TODO EDIT ME #####
 userinput = {
-    "Out Limit": -40.0,
-    "In Limit": 14.0,
+    "Out Limit": -5.0,
+    "In Limit": 12.0,
     "Steps": 12700,
-    "Event": "0A",
-    "Additional Parameters": ["L:D5TOR","L:D7TOR","L:D53LM","L:D54LM","L:D61LM","L:D62LM","L:D63LM","L:D64LM","L:D71LM"],
-    "Save Directory": "C:/Users/erinchen/Documents/VS/Git_Projects/Linac_WireScan_Basic/2024_07_Studies_Data/QS_3_Q54_D63",
+    "Event": "0C",
+    "Additional Parameters": ["L:D0VLM"],
+    "Save Directory": "C:/Users/erinchen/Documents/VS/Git_Projects/Linac_WireScan_Basic/testing/20241014",
     
-    "Wires": ["D63"],
-    "Quad Name": "L:Q54",
-    "Quad Vals": [170,180],
-    "QS User Comment": "QS3",
+    "Wires": ["D12"],
+    "Quad Name": "L:Q04",
+    "Quad Vals": [115,118,120,122],
+    "QS User Comment": "testing trial 1",
 }
 #########################
 

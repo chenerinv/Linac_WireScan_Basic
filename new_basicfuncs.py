@@ -5,6 +5,7 @@ import numpy as np
 import itertools
 import new_basicdata as basicdata
 import numpy as np
+import math
 
 def checktype(value,type):
     """Check the type of a value: int, float, string, etc."""

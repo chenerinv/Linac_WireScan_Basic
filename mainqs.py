@@ -14,7 +14,7 @@ import csvdictparse as cdp
 import logging
 import tkinter as tk
 import copy
-import errorprop as ep
+from errorprop import errorpropogation 
 import numpy as np
 
 def appender(limit,listA): 
@@ -23,6 +23,7 @@ def appender(limit,listA):
 
 def mainqs(userinput): 
     acsyscontrol = acs()
+    ep = errorpropogation()
     qdata = {
         'Quad Name': userinput["Quad Name"],
         'Quad Set Vals': userinput["Quad Vals"], 
@@ -77,12 +78,11 @@ def mainqs(userinput):
                 # change user comment to include quad scan identifier
                 wsinput["User Comment"] = "QS_ID_"+str(qdata["Timestamp"])
                 acsyscontrol.setparam(qdata['Quad Name'],qval)
-                print("line78")
                 timestamp, folderpath = mainws.mainws(wsinput,acsyscontrol)
                 qdata["Wires"][wire]["WS Timestamps"].append(timestamp) # modified 10/14/2024 to actually append, not just save the last
                 qdata["Wires"][wire]["WS Paths"].append(folderpath) # modified 10/14/2024 to actually append, not just save the last
 
-                # # retrieve WS data and quad data
+                # retrieve WS data and quad data
                 def savestuff(tempdata,index): 
                     if tempdata["error"] == None: # checking there will actually be a sigma to reference
                         if counterq < len(qdata['Wires'][wire]['WS Sigmas'][index]): 
@@ -91,7 +91,7 @@ def mainqs(userinput):
                             appender(counterq,qdata['Wires'][wire]['WS Sigmas'][index])
                             qdata['Wires'][wire]['WS Sigmas'][index][counterq] = tempdata["sigma"]
                         if counterq < len(qdata['Wires'][wire]['WS Sigma Err'][index]): 
-                            qdata['Wires'][wire]['WS Sigma Err'][index][counterq] = tempdata["sigmaerr"]
+                            qdata['Wires'][wire]['WS Sigma Err'][index][counterq] = tempdata["sigmaerr"] # start the list
                         else: 
                             appender(counterq,qdata['Wires'][wire]['WS Sigma Err'][index])
                             qdata['Wires'][wire]['WS Sigma Err'][index][counterq] = tempdata["sigmaerr"]
@@ -203,7 +203,6 @@ def mainqs(userinput):
 
             qstats, fitline = dataana.parab_fit(q,sig2,serr2)
             if qstats["error"] == None: # if fit was successful, plot it
-                plt.plot(fitline["xs"],fitline["ys"],color=colors[i],label=dir+" Fit")
                 ynew = [np.sqrt(x) for x in fitline["ys"]]
                 plt.plot(fitline["xs"],ynew,color=colors[i],label=dir+" Fit")
 
@@ -211,66 +210,69 @@ def mainqs(userinput):
             realqstats = dataana.parab_fit(kl,var,verr)[0] 
             fitstatdict = {"raw": qstats, "kl": realqstats}
 
-            # propogating uncertainty & calculating values
-            padd = fitstatdict["kl"]["padd"]
-            a, b, c = padd[0],padd[1],padd[2]
-            cadd = fitstatdict["kl"]["cadd"]
+            if realqstats["error"] == None: # if fit was successful
 
-            d = (basicdata.distances(wire[2:5])-basicdata.distances(qdata["Quad Name"]))/1000 # distance in m
-            # adjusting cadd to account for d
-            g = ep.powC(2,(d,0.005)) # assuming 5 mm std error, fixed 10/14/2024
-            derr = g[1] 
-            cadd = np.pad(cadd,((0,1),(0,1)),mode='constant',constant_values=0)
-            cadd[3,3] = derr
+                # propogating uncertainty & calculating values
+                padd = fitstatdict["kl"]["padd"]
+                a, b, c = padd[0],padd[1],padd[2]
+                cadd = fitstatdict["kl"]["cadd"]
 
-            # calculating betagamma
-            betagamma = basicdata.beta[qdata["Quad Name"]]*(1/np.sqrt(1-basicdata.beta[qdata["Quad Name"]]**2))
+                d = (basicdata.distances[wire]-basicdata.distances[qdata["Quad Name"]])/1000 # distance in m
+                # adjusting cadd to account for d
+                g = ep.powC(2,(d,0.005)) # assuming 5 mm std error, fixed 10/14/2024
+                derr = g[1] 
+                cadd = np.pad(cadd,((0,1),(0,1)),mode='constant',constant_values=0)
+                cadd[3,3] = derr
 
-            # differentiation done in matlab for my sanity
-            u_sig11 = a/d**2
-            g_sig11 = [1/d**2, 0, 0, -(2*a)/d**3]
-            e_sig11 = np.matmul(np.transpose(g_sig11),np.matmul(cadd,g_sig11))
+                # calculating betagamma
+                betagamma = basicdata.beta[qdata["Quad Name"]]*(1/np.sqrt(1-basicdata.beta[qdata["Quad Name"]]**2))
 
-            u_sig12 = -(2*a + b*d)/(2*d**3)
-            g_sig12 = [-1/d**3, -1/(2*d**2), 0, (3*(2*a + b*d))/(2*d**4) - b/(2*d**3)]
-            e_sig12 = np.matmul(np.transpose(g_sig12),np.matmul(cadd,g_sig12))
+                # differentiation done in matlab for my sanity
+                u_sig11 = a/d**2
+                g_sig11 = [1/d**2, 0, 0, -(2*a)/d**3]
+                e_sig11 = np.matmul(np.transpose(g_sig11),np.matmul(cadd,g_sig11))
 
-            u_sig22 = (c*d**2 + b*d + a)/d**4
-            g_sig22 = [1/d**4, 1/d**3, 1/d**2, (b + 2*c*d)/d**4 - (4*(c*d**2 + b*d + a))/d**5]
-            e_sig22 = np.matmul(np.transpose(g_sig22),np.matmul(cadd,g_sig22))
+                u_sig12 = -(2*a + b*d)/(2*d**3)
+                g_sig12 = [-1/d**3, -1/(2*d**2), 0, (3*(2*a + b*d))/(2*d**4) - b/(2*d**3)]
+                e_sig12 = np.matmul(np.transpose(g_sig12),np.matmul(cadd,g_sig12))
 
-            u_emit = ((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)
-            g_emit = [(a/d**6 - (8*a + 4*b*d)/(4*d**6) + (c*d**2 + b*d + a)/d**6)/(2*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)), -((2*a + b*d)/(2*d**5) - a/d**5)/(2*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)), a/(2*d**4*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)), ((3*(2*a + b*d)**2)/(2*d**7) + (a*(b + 2*c*d))/d**6 - (b*(2*a + b*d))/(2*d**6) - (6*a*(c*d**2 + b*d + a))/d**7)/(2*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2))]
-            e_emit = np.matmul(np.transpose(g_emit),np.matmul(cadd,g_emit))
+                u_sig22 = (c*d**2 + b*d + a)/d**4
+                g_sig22 = [1/d**4, 1/d**3, 1/d**2, (b + 2*c*d)/d**4 - (4*(c*d**2 + b*d + a))/d**5]
+                e_sig22 = np.matmul(np.transpose(g_sig22),np.matmul(cadd,g_sig22))
 
-            u_alpha = (2*a + b*d)/(2*d**3*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2))
-            g_alpha = [1/(d**3*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)) - ((2*a + b*d)*(a/d**6 - (8*a + 4*b*d)/(4*d**6) + (c*d**2 + b*d + a)/d**6))/(4*d**3*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(3/2)), 1/(2*d**2*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)) + ((2*a + b*d)*((2*a + b*d)/(2*d**5) - a/d**5))/(4*d**3*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(3/2)), -(a*(2*a + b*d))/(4*d**7*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(3/2)), b/(2*d**3*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)) - (3*(2*a + b*d))/(2*d**4*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)) - ((2*a + b*d)*((3*(2*a + b*d)**2)/(2*d**7) + (a*(b + 2*c*d))/d**6 - (b*(2*a + b*d))/(2*d**6) - (6*a*(c*d**2 + b*d + a))/d**7))/(4*d**3*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(3/2))]
-            e_alpha = np.matmul(np.transpose(g_alpha),np.matmul(cadd,g_alpha))
+                fitstatdict["kl"]["padd"] = fitstatdict["kl"]["padd"].tolist()
+                fitstatdict["kl"]["cadd"] = fitstatdict["kl"]["cadd"].tolist()
+                fitstatdict["raw"]["padd"] = fitstatdict["raw"]["padd"].tolist()
+                fitstatdict["raw"]["cadd"] = fitstatdict["raw"]["cadd"].tolist()
+                fitstatdict["kl"]["sigma11"]=(u_sig11,np.sqrt(e_sig11))
+                fitstatdict["kl"]["sigma12"]=(u_sig12,np.sqrt(e_sig12))
+                fitstatdict["kl"]["sigma22"]=(u_sig22,np.sqrt(e_sig22))
 
-            u_beta = a/(d**2*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2))
-            g_beta = [1/(d**2*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)) - (a*(a/d**6 - (8*a + 4*b*d)/(4*d**6) + (c*d**2 + b*d + a)/d**6))/(2*d**2*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(3/2)), (a*((2*a + b*d)/(2*d**5) - a/d**5))/(2*d**2*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(3/2)), -a**2/(2*d**6*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(3/2)), - (2*a)/(d**3*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)) - (a*((3*(2*a + b*d)**2)/(2*d**7) + (a*(b + 2*c*d))/d**6 - (b*(2*a + b*d))/(2*d**6) - (6*a*(c*d**2 + b*d + a))/d**7))/(2*d**2*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(3/2))]
-            e_beta = np.matmul(np.transpose(g_beta),np.matmul(cadd,g_beta))
+                u_emit = ((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)
+                g_emit = [(a/d**6 - (8*a + 4*b*d)/(4*d**6) + (c*d**2 + b*d + a)/d**6)/(2*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)), -((2*a + b*d)/(2*d**5) - a/d**5)/(2*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)), a/(2*d**4*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)), ((3*(2*a + b*d)**2)/(2*d**7) + (a*(b + 2*c*d))/d**6 - (b*(2*a + b*d))/(2*d**6) - (6*a*(c*d**2 + b*d + a))/d**7)/(2*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2))]
+                e_emit = np.matmul(np.transpose(g_emit),np.matmul(cadd,g_emit))
 
-            u_gamma = (c*d**2 + b*d + a)/(d**4*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2))
-            g_gamma = [1/(d**4*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)) - ((c*d**2 + b*d + a)*(a/d**6 - (8*a + 4*b*d)/(4*d**6) + (c*d**2 + b*d + a)/d**6))/(2*d**4*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(3/2)), 1/(d**3*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)) + (((2*a + b*d)/(2*d**5) - a/d**5)*(c*d**2 + b*d + a))/(2*d**4*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(3/2)), 1/(d**2*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)) - (a*(c*d**2 + b*d + a))/(2*d**8*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(3/2)), (b + 2*c*d)/(d**4*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)) - (4*(c*d**2 + b*d + a))/(d**5*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)) - ((c*d**2 + b*d + a)*((3*(2*a + b*d)**2)/(2*d**7) + (a*(b + 2*c*d))/d**6 - (b*(2*a + b*d))/(2*d**6) - (6*a*(c*d**2 + b*d + a))/d**7))/(2*d**4*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(3/2))]
-            e_gamma = np.matmul(np.transpose(g_gamma),np.matmul(cadd,g_gamma))
-            
-            u_norme = 1000000*betagamma*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)
-            g_norme = [(500000*betagamma*(a/d**6 - (8*a + 4*b*d)/(4*d**6) + (c*d**2 + b*d + a)/d**6))/((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2), -(500000*betagamma*((2*a + b*d)/(2*d**5) - a/d**5))/((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2), (500000*a*betagamma)/(d**4*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)), (500000*betagamma*((3*(2*a + b*d)**2)/(2*d**7) + (a*(b + 2*c*d))/d**6 - (b*(2*a + b*d))/(2*d**6) - (6*a*(c*d**2 + b*d + a))/d**7))/((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)]
-            e_norme = np.matmul(np.transpose(g_norme),np.matmul(cadd,g_norme))
+                u_alpha = (2*a + b*d)/(2*d**3*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2))
+                g_alpha = [1/(d**3*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)) - ((2*a + b*d)*(a/d**6 - (8*a + 4*b*d)/(4*d**6) + (c*d**2 + b*d + a)/d**6))/(4*d**3*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(3/2)), 1/(2*d**2*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)) + ((2*a + b*d)*((2*a + b*d)/(2*d**5) - a/d**5))/(4*d**3*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(3/2)), -(a*(2*a + b*d))/(4*d**7*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(3/2)), b/(2*d**3*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)) - (3*(2*a + b*d))/(2*d**4*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)) - ((2*a + b*d)*((3*(2*a + b*d)**2)/(2*d**7) + (a*(b + 2*c*d))/d**6 - (b*(2*a + b*d))/(2*d**6) - (6*a*(c*d**2 + b*d + a))/d**7))/(4*d**3*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(3/2))]
+                e_alpha = np.matmul(np.transpose(g_alpha),np.matmul(cadd,g_alpha))
 
-            fitstatdict["kl"]["padd"] = fitstatdict["kl"]["padd"].tolist()
-            fitstatdict["kl"]["cadd"] = fitstatdict["kl"]["cadd"].tolist()
-            fitstatdict["raw"]["padd"] = fitstatdict["raw"]["padd"].tolist()
-            fitstatdict["raw"]["cadd"] = fitstatdict["raw"]["cadd"].tolist()
-            fitstatdict["kl"]["sigma11"]=(u_sig11,np.sqrt(e_sig11))
-            fitstatdict["kl"]["sigma12"]=(u_sig12,np.sqrt(e_sig12))
-            fitstatdict["kl"]["sigma22"]=(u_sig22,np.sqrt(e_sig22))
-            fitstatdict["kl"]["emittance"]=(u_emit,np.sqrt(e_emit))
-            fitstatdict["kl"]["normemittance"]=(u_emit*betagamma*1000*1000,np.sqrt(e_emit*betagamma*1000*1000))
-            fitstatdict["kl"]["alpha"]=(u_alpha,np.sqrt(e_alpha))
-            fitstatdict["kl"]["beta"]=(u_beta,np.sqrt(e_beta))
-            fitstatdict["kl"]["gamma"]=(u_gamma,np.sqrt(e_gamma))
+                u_beta = a/(d**2*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2))
+                g_beta = [1/(d**2*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)) - (a*(a/d**6 - (8*a + 4*b*d)/(4*d**6) + (c*d**2 + b*d + a)/d**6))/(2*d**2*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(3/2)), (a*((2*a + b*d)/(2*d**5) - a/d**5))/(2*d**2*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(3/2)), -a**2/(2*d**6*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(3/2)), - (2*a)/(d**3*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)) - (a*((3*(2*a + b*d)**2)/(2*d**7) + (a*(b + 2*c*d))/d**6 - (b*(2*a + b*d))/(2*d**6) - (6*a*(c*d**2 + b*d + a))/d**7))/(2*d**2*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(3/2))]
+                e_beta = np.matmul(np.transpose(g_beta),np.matmul(cadd,g_beta))
+
+                u_gamma = (c*d**2 + b*d + a)/(d**4*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2))
+                g_gamma = [1/(d**4*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)) - ((c*d**2 + b*d + a)*(a/d**6 - (8*a + 4*b*d)/(4*d**6) + (c*d**2 + b*d + a)/d**6))/(2*d**4*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(3/2)), 1/(d**3*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)) + (((2*a + b*d)/(2*d**5) - a/d**5)*(c*d**2 + b*d + a))/(2*d**4*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(3/2)), 1/(d**2*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)) - (a*(c*d**2 + b*d + a))/(2*d**8*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(3/2)), (b + 2*c*d)/(d**4*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)) - (4*(c*d**2 + b*d + a))/(d**5*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)) - ((c*d**2 + b*d + a)*((3*(2*a + b*d)**2)/(2*d**7) + (a*(b + 2*c*d))/d**6 - (b*(2*a + b*d))/(2*d**6) - (6*a*(c*d**2 + b*d + a))/d**7))/(2*d**4*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(3/2))]
+                e_gamma = np.matmul(np.transpose(g_gamma),np.matmul(cadd,g_gamma))
+                
+                u_norme = 1000000*betagamma*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)
+                g_norme = [(500000*betagamma*(a/d**6 - (8*a + 4*b*d)/(4*d**6) + (c*d**2 + b*d + a)/d**6))/((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2), -(500000*betagamma*((2*a + b*d)/(2*d**5) - a/d**5))/((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2), (500000*a*betagamma)/(d**4*((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)), (500000*betagamma*((3*(2*a + b*d)**2)/(2*d**7) + (a*(b + 2*c*d))/d**6 - (b*(2*a + b*d))/(2*d**6) - (6*a*(c*d**2 + b*d + a))/d**7))/((a*(c*d**2 + b*d + a))/d**6 - (2*a + b*d)**2/(4*d**6))**(1/2)]
+                e_norme = np.matmul(np.transpose(g_norme),np.matmul(cadd,g_norme))
+
+                fitstatdict["kl"]["emittance"]=(u_emit,np.sqrt(e_emit))
+                fitstatdict["kl"]["normemittance"]=(u_emit*betagamma*1000*1000,np.sqrt(e_emit*betagamma*1000*1000))
+                fitstatdict["kl"]["alpha"]=(u_alpha,np.sqrt(e_alpha))
+                fitstatdict["kl"]["beta"]=(u_beta,np.sqrt(e_beta))
+                fitstatdict["kl"]["gamma"]=(u_gamma,np.sqrt(e_gamma))
 
             basicfuncs.dicttojson(fitstatdict,os.path.join(qdata["QS Directory"],"_".join([str(qdata["Timestamp"]),qdata["Quad Name"][2:],wire,dir,"ParabolicFitStats.json"])))
 
