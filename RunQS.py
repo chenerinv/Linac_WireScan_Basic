@@ -9,14 +9,14 @@ userinput = {
     "Out Limit": -40.0,
     "In Limit": 14.0,
     "Steps": 12700,
-    "Event": "0C",
-    "Additional Parameters": ["L:GR2MID"],
-    "Save Directory": "C:/Users/erinchen/Documents/VS/Git_Projects/Linac_WireScan_Basic/datacollect",
+    "Event": "0A",
+    "Additional Parameters": ["L:D5TOR","L:D7TOR","L:D53LM","L:D54LM","L:D61LM","L:D62LM","L:D63LM","L:D64LM","L:D71LM"],
+    "Save Directory": "C:/Users/erinchen/Documents/VS/Git_Projects/Linac_WireScan_Basic/2024_07_Studies_Data/QS_3_Q54_D63",
     
-    "Wires": ["D03","D02"],
-    "Quad Name": "G:AMANDA",
-    "Quad Vals": [60,65,70,75,80],
-    "QS User Comment": "program test",
+    "Wires": ["D63"],
+    "Quad Name": "L:Q54",
+    "Quad Vals": [170,180],
+    "QS User Comment": "QS3",
 }
 #########################
 

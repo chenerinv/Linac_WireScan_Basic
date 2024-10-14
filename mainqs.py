@@ -75,6 +75,7 @@ def mainqs(userinput):
                 # change user comment to include quad scan identifier
                 wsinput["User Comment"] = "QS_ID_"+str(qdata["Timestamp"])
                 acsyscontrol.setparam(qdata['Quad Name'],qval)
+                print("line78")
                 timestamp, folderpath = mainws.mainws(wsinput,acsyscontrol)
                 qdata["Wires"][wire]["WS Timestamps"] = timestamp
                 qdata["Wires"][wire]["WS Paths"] = folderpath

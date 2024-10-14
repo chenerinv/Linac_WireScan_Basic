@@ -20,7 +20,7 @@ def mainws(userinput,acsyscontrol):
         if item not in list(userinput.keys()): 
             print(item+" is a required value.\n") 
             return 
-        
+    print("line23")    
     # check that the wire is in an ok position 
     temppos = float(acsyscontrol.checkparam([basicdata.pdict[userinput["Wire"]][0]],10)[0])
     if temppos <= userinput["Out Limit"]: 
@@ -48,22 +48,23 @@ def mainws(userinput,acsyscontrol):
         tagdict[i]=device
         i=i+1
     userinput["Tags"] = tagdict
-
+    print("line51")
     # collect metadata 
     metad = {key:userinput[key] for key in ['Event', 'User Comment','Timestamp','WS Directory','Direction','Tags']}
     if userinput["Event"] == "0A": 
         params = ["L:SOURCE.READING","L:D7TOR.READING","L:TCHTON.READING","L:TCHTOF.READING","L:BSTUDY.READING"]
     else: 
         params = ["L:SOURCE.READING","L:D7TOR.READING"]
-    m = acsyscontrol.checkparam(params,10)
-    if m[0] == -10.24:
-        metad["Source"] = "A"
-    elif m[0] == 10.24: 
-        metad["Source"] = "B"
-    metad["L:D7TOR"] = m[1]
-    if len(params) == 5: 
-        metad["Pulse Length"] = m[3]-m[2]
-        metad["Frequency"] = m[4]
+    # m = acsyscontrol.checkparam(params,10)
+    # if m[0] == -10.24:
+    #     metad["Source"] = "A"
+    # elif m[0] == 10.24: 
+    #     metad["Source"] = "B"
+    # metad["L:D7TOR"] = m[1]
+    # if len(params) == 5: 
+    #     metad["Pulse Length"] = m[3]-m[2]
+    #     metad["Frequency"] = m[4]
+    print("line67")
     basicfuncs.dicttojson(metad,os.path.join(userinput["WS Directory"],"_".join([str(userinput["Timestamp"]),userinput["Wire"],"Metadata.json"])))
     
     # start wirescan 
