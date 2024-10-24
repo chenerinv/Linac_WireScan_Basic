@@ -1,6 +1,8 @@
 # Linac Wire Scan Basic
 Uses AcSys Python to execute a fast wire scan by issuing one setpoint and collecting data.  
 
+- make the beta calculation more efficient & just calculate beta/gamma/etc. from the energy, rather than making it be provided
+
 Can run one WS or a QS. 
 
 1/17/2023 Changes that were made from the previous version (1/3/2024):  

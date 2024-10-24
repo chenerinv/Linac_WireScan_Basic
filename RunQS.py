@@ -6,17 +6,16 @@ import os
 
 ##### #TODO EDIT ME #####
 userinput = {
-    "Out Limit": -5.0,
-    "In Limit": 12.0,
+    "Out Limit": -45.0,
+    "In Limit": 14.0,
     "Steps": 12700,
-    "Event": "0C",
-    "Additional Parameters": ["L:D0VLM"],
-    "Save Directory": "C:/Users/erinchen/Documents/VS/Git_Projects/Linac_WireScan_Basic/testing/20241014",
+    "Event": "0A",
+    "Additional Parameters": ["L:D00LM","L:D0VLM","L:D11LM","L:D12LM","L:D13LM","L:D14LM","L:TO5OUT","L:D1TOR","L:D2TOR",],
+    "Save Directory": "C:/Users/erinchen/Documents/VS/Git_Projects/Linac_WireScan_Basic//2024_10_Studies_Data/Tomography",
     
-    "Wires": ["D12","D23"],
-    "Quad Name": "L:Q04",
-    "Quad Vals": [115,118,120,122],
-    "QS User Comment": "testing trial 2",
+    "Wires": ["D12"],
+    "Quad Settings File": "C:/Users/erinchen/Documents/VS/Git_Projects/Linac_WireScan_Basic/2024_10_Studies_Data/Tomography/tomog_quad_settings.csv",
+    "QS User Comment": "testing tomog trial 1",
 }
 #########################
 
