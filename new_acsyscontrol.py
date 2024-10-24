@@ -17,6 +17,8 @@ async def runscan(con,threadcontext,maindict):
             print("Invalid Kerberos realm.\n")  #TODO change to messageprint
             return
         # add acquisition requests
+        if maindict["Event"] == "0A":
+            await dpm.add_entry(-2,'L:BSTUDY.STATUS@e,'+maindict['Event'])
         await dpm.add_entry(-1,'G:AMANDA@p,1H') # this is to let us check set even without an event
         await dpm.add_entry(0, 'L:'+maindict['Wire']+'WPX.SETTING@N')  
 
@@ -47,14 +49,19 @@ async def runscan(con,threadcontext,maindict):
                         elif maindict["Direction"] == 1: 
                             if evt_res.data < maindict["Out Limit"]: 
                                 threadcontext['stop'].set()
+                    elif evt_res.isReadingFor(-2): 
+                        if evt_res.data["on"] == False: 
+                            await dpm.apply_settings([(0, 0)])
+                            input("Reenable L:BSTUDY!! Enter to continue. ") # should hold up the whole thread
+                            await dpm.apply_settings([(0, steps)])
+
                     threadcontext['outdict']['tags'].append(evt_res.tag)
                     threadcontext['outdict']['data'].append(evt_res.data)
                     threadcontext['outdict']['stamps'].append(evt_res.stamp.timestamp())
-
-                    g=g+1 # TODO COMMENT SECTION WHEN ALLOWED TO MOVE WS
+                    # g=g+1 # TODO COMMENT SECTION WHEN ALLOWED TO MOVE WS
                     # if g > 1000: 
                     #     threadcontext['stop'].set()
-                    #     print("threadstopped in temporary counter!")            
+                    #     print("threadstopped in temporary counter!")       
             else: 
                 pass # this is likely a status response 
 
