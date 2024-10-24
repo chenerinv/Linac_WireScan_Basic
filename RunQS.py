@@ -13,10 +13,10 @@ userinput = {
     "Additional Parameters": ["L:D0VLM"],
     "Save Directory": "C:/Users/erinchen/Documents/VS/Git_Projects/Linac_WireScan_Basic/testing/20241014",
     
-    "Wires": ["D12"],
+    "Wires": ["D12","D23"],
     "Quad Name": "L:Q04",
     "Quad Vals": [115,118,120,122],
-    "QS User Comment": "testing trial 1",
+    "QS User Comment": "testing trial 2",
 }
 #########################
 
